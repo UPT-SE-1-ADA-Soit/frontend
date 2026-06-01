@@ -1,0 +1,131 @@
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 24px 16px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.searchBarWrap {
+  flex: 1;
+}
+
+.backBtn {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text);
+  transition: background 0.15s ease;
+}
+
+.backBtn:hover {
+  background: #f3f4f6;
+}
+
+.categoryHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+}
+
+.categoryHeaderTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.categoryHeaderCount {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-left: auto;
+}
+
+.sectionTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.count {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.categoryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.categoryCard {
+  aspect-ratio: 1 / 1;
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-align: left;
+}
+
+.categoryCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.categoryCardName {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 16px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 60px 16px;
+  gap: 6px;
+  color: var(--color-text-secondary);
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-top: 6px;
+}
+
+.emptySubtext {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 600px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .categoryGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

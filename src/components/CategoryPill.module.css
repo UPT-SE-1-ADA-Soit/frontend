@@ -1,0 +1,23 @@
+.pill {
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pill:hover {
+  background: #e5e7eb;
+}
+
+.pillSelected {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.pillSelected:hover {
+  background: var(--color-primary-dark);
+}
