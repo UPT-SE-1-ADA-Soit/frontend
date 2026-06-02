@@ -13,7 +13,7 @@ import {
 import { ConditionBadge } from '@/components/ConditionBadge.jsx';
 import { useAuth } from '@/context/auth.jsx';
 import { useLikes } from '@/context/likes.jsx';
-import { MOCK_PRODUCTS } from '@/mocks/products.js';
+import { useProductDetail } from '@/hooks/useProductDetail.js';
 
 import styles from './ProductDetail.module.css';
 
@@ -23,14 +23,22 @@ export default function ProductDetail() {
   const { user } = useAuth();
   const { isLiked, toggleLike } = useLikes();
 
-  const product = MOCK_PRODUCTS.find((p) => p.id === id);
+  const { product, loading, error } = useProductDetail(id);
   const [activeImage, setActiveImage] = useState(0);
   const [buying, setBuying] = useState(false);
 
-  if (!product) {
+  if (loading) {
     return (
       <div className={styles.notFound}>
-        <p>Product not found.</p>
+        <p>Loading…</p>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className={styles.notFound}>
+        <p>{error ? `Couldn’t load product: ${error.message}` : 'Product not found.'}</p>
         <button
           type="button"
           className={styles.backLink}
@@ -151,9 +159,11 @@ export default function ProductDetail() {
           <span className={styles.metaItem}>
             <MapPin size={14} /> {product.location}
           </span>
-          <span className={styles.metaItem}>
-            <Eye size={14} /> {product.views} views
-          </span>
+          {product.views !== undefined && (
+            <span className={styles.metaItem}>
+              <Eye size={14} /> {product.views} views
+            </span>
+          )}
         </div>
 
         {product.description && (

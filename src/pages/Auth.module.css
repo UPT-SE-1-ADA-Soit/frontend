@@ -78,6 +78,16 @@
   margin-top: 6px;
 }
 
+.formError {
+  margin: 4px 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 13px;
+}
+
 .submitBtn {
   width: 100%;
   padding: 13px 16px;

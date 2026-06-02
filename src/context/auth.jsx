@@ -1,78 +1,89 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { MOCK_ME, MOCK_USERS } from '@/mocks/users.js';
 
-const STORAGE_KEY = 'marketa.user';
+import { getToken, setToken } from '@/api/client.js';
+import * as authService from '@/services/authService.js';
+
+const USER_KEY = 'marketa.user';
 
 const AuthContext = createContext(null);
 
+function loadCachedUser() {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistUser(user) {
+  if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+  else localStorage.removeItem(USER_KEY);
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => (getToken() ? loadCachedUser() : null));
   const [isLoading, setIsLoading] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(!!getToken());
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setUser(JSON.parse(raw));
-    } catch {
-      // ignore
-    } finally {
+    if (!getToken()) {
       setIsInitializing(false);
+      return;
     }
+    authService
+      .validateToken()
+      .then((fresh) => {
+        persistUser(fresh);
+        setUser(fresh);
+      })
+      .catch(() => {
+        setToken(null);
+        persistUser(null);
+        setUser(null);
+      })
+      .finally(() => setIsInitializing(false));
   }, []);
 
-  function persist(next) {
-    if (next) localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    else localStorage.removeItem(STORAGE_KEY);
-    setUser(next);
-  }
-
-  async function login(email /* , password */) {
+  async function login(email, password) {
     setIsLoading(true);
     try {
-      // TODO: replace with POST /api/auth/login
-      await new Promise((r) => setTimeout(r, 400));
-      const match = MOCK_USERS.find(
-        (u) => u.email.toLowerCase() === email.toLowerCase(),
-      );
-      persist(match ?? MOCK_ME);
+      const { token, user: fresh } = await authService.login(email, password);
+      setToken(token);
+      persistUser(fresh);
+      setUser(fresh);
     } finally {
       setIsLoading(false);
     }
   }
 
-  async function register(name, email /* , password */) {
+  async function register(name, email, password) {
     setIsLoading(true);
     try {
-      // TODO: replace with POST /api/auth/register
-      await new Promise((r) => setTimeout(r, 400));
-      const newUser = {
-        id: `u-${Date.now()}`,
-        name: name.trim() || 'New User',
+      const { token, user: fresh } = await authService.register({
+        name,
         email,
-        avatar: `https://i.pravatar.cc/150?u=${encodeURIComponent(email)}`,
-        location: '',
-        rating: 0,
-        totalSales: 0,
-        joinedAt: new Date().toISOString().slice(0, 10),
-      };
-      persist(newUser);
+        password,
+      });
+      setToken(token);
+      persistUser(fresh);
+      setUser(fresh);
     } finally {
       setIsLoading(false);
     }
   }
 
   async function logout() {
-    persist(null);
+    setToken(null);
+    persistUser(null);
+    setUser(null);
   }
 
-  function updateUser(partial) {
-    setUser((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, ...partial };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
+  async function updateUser(partial) {
+    const fresh = await authService.updateProfile(partial);
+    persistUser(fresh);
+    setUser(fresh);
+    return fresh;
   }
 
   return (

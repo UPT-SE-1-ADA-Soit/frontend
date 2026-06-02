@@ -10,9 +10,10 @@ export default function Login() {
   const navigate = useNavigate();
   const { login, isLoading } = useAuth();
 
-  const [email, setEmail] = useState('alice@example.com');
-  const [password, setPassword] = useState('password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState('');
 
   function validate() {
     const next = {};
@@ -24,9 +25,18 @@ export default function Login() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    setSubmitError('');
     if (!validate()) return;
-    await login(email.trim(), password);
-    navigate('/');
+    try {
+      await login(email.trim(), password);
+      navigate('/');
+    } catch (err) {
+      setSubmitError(
+        err.status === 401
+          ? 'Invalid email or password.'
+          : err.message || 'Sign-in failed. Please try again.',
+      );
+    }
   }
 
   return (
@@ -63,6 +73,7 @@ export default function Login() {
             onChange={(e) => setPassword(e.target.value)}
             error={errors.password}
           />
+          {submitError && <p className={styles.formError}>{submitError}</p>}
           <button
             type="submit"
             className={styles.submitBtn}
@@ -77,11 +88,6 @@ export default function Login() {
           <Link to="/register" className={styles.link}>
             Register
           </Link>
-        </p>
-
-        <p className={styles.hint}>
-          Try <code>alice@example.com</code>, <code>bob@example.com</code>, or
-          any email — this is a mock auth.
         </p>
       </div>
     </div>

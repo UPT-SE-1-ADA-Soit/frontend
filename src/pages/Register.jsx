@@ -14,6 +14,7 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState('');
 
   function validate() {
     const next = {};
@@ -27,9 +28,18 @@ export default function Register() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    setSubmitError('');
     if (!validate()) return;
-    await register(name.trim(), email.trim(), password);
-    navigate('/');
+    try {
+      await register(name.trim(), email.trim(), password);
+      navigate('/');
+    } catch (err) {
+      setSubmitError(
+        err.status === 409
+          ? 'An account with that email already exists.'
+          : err.message || 'Registration failed. Please try again.',
+      );
+    }
   }
 
   return (
@@ -75,6 +85,7 @@ export default function Register() {
             error={errors.password}
             autoComplete="new-password"
           />
+          {submitError && <p className={styles.formError}>{submitError}</p>}
           <button
             type="submit"
             className={styles.submitBtn}
