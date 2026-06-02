@@ -245,6 +245,58 @@
   font-weight: 600;
 }
 
+.errorMsg {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 13px;
+}
+
+.ordersList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.orderRow {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.orderBtn {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.orderBtn:hover {
+  background: #f9fafb;
+}
+
+.orderName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.orderDate {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
 @media (max-width: 600px) {
   .grid {
     grid-template-columns: repeat(2, 1fr);

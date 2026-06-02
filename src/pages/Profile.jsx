@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Grid,
@@ -15,7 +15,8 @@ import { ProductCard } from '@/components/ProductCard.jsx';
 
 import { useAuth } from '@/context/auth.jsx';
 import { useLikes } from '@/context/likes.jsx';
-import { MOCK_PRODUCTS } from '@/mocks/products.js';
+import { useUserListings } from '@/hooks/useUserListings.js';
+import { useUserOrders } from '@/hooks/useUserOrders.js';
 
 import styles from './Profile.module.css';
 
@@ -28,7 +29,7 @@ const TABS = [
 
 export default function Profile() {
   const { user, logout, updateUser } = useAuth();
-  const { likedIds } = useLikes();
+  const { favorites } = useLikes();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('listings');
 
@@ -36,15 +37,10 @@ export default function Profile() {
   const [editLocation, setEditLocation] = useState(user?.location ?? '');
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
+  const [saveError, setSaveError] = useState('');
 
-  const myListings = useMemo(
-    () => (user ? MOCK_PRODUCTS.filter((p) => p.seller.id === user.id) : []),
-    [user],
-  );
-  const favourites = useMemo(
-    () => MOCK_PRODUCTS.filter((p) => likedIds.has(p.id)),
-    [likedIds],
-  );
+  const { listings, loading: listingsLoading } = useUserListings(user?.id);
+  const { orders, loading: ordersLoading } = useUserOrders(user?.id);
 
   if (!user) return <LoginRequired message="Log in to view your profile." />;
 
@@ -52,11 +48,20 @@ export default function Profile() {
     e.preventDefault();
     if (!editName.trim()) return;
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 400));
-    updateUser({ name: editName.trim(), location: editLocation.trim() });
-    setSaving(false);
-    setSavedMsg('Saved!');
-    setTimeout(() => setSavedMsg(''), 1500);
+    setSaveError('');
+    try {
+      await updateUser({
+        name: editName.trim(),
+        location: editLocation.trim(),
+        avatar: user.avatar,
+      });
+      setSavedMsg('Saved!');
+      setTimeout(() => setSavedMsg(''), 1500);
+    } catch (err) {
+      setSaveError(err.message || 'Could not save changes.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleLogout() {
@@ -98,17 +103,17 @@ export default function Profile() {
 
       <section className={styles.stats}>
         <div className={styles.statItem}>
-          <span className={styles.statValue}>{myListings.length}</span>
+          <span className={styles.statValue}>{listings.length}</span>
           <span className={styles.statLabel}>Listings</span>
         </div>
         <div className={styles.statDivider} />
         <div className={styles.statItem}>
-          <span className={styles.statValue}>0</span>
+          <span className={styles.statValue}>{orders.length}</span>
           <span className={styles.statLabel}>Orders</span>
         </div>
         <div className={styles.statDivider} />
         <div className={styles.statItem}>
-          <span className={styles.statValue}>{favourites.length}</span>
+          <span className={styles.statValue}>{favorites.length}</span>
           <span className={styles.statLabel}>Saved</span>
         </div>
       </section>
@@ -132,8 +137,12 @@ export default function Profile() {
       </nav>
 
       <section className={styles.tabContent}>
-        {activeTab === 'listings' && (
-          myListings.length === 0 ? (
+        {activeTab === 'listings' &&
+          (listingsLoading ? (
+            <div className={styles.empty}>
+              <p className={styles.emptyTitle}>Loading…</p>
+            </div>
+          ) : listings.length === 0 ? (
             <div className={styles.empty}>
               <Grid size={40} color="#d1d5db" />
               <p className={styles.emptyTitle}>No listings yet</p>
@@ -150,7 +159,7 @@ export default function Profile() {
             </div>
           ) : (
             <div className={styles.grid}>
-              {myListings.map((p) => (
+              {listings.map((p) => (
                 <ProductCard
                   key={p.id}
                   product={p}
@@ -158,11 +167,10 @@ export default function Profile() {
                 />
               ))}
             </div>
-          )
-        )}
+          ))}
 
-        {activeTab === 'favourites' && (
-          favourites.length === 0 ? (
+        {activeTab === 'favourites' &&
+          (favorites.length === 0 ? (
             <div className={styles.empty}>
               <Heart size={40} color="#d1d5db" />
               <p className={styles.emptyTitle}>No favourites yet</p>
@@ -172,7 +180,7 @@ export default function Profile() {
             </div>
           ) : (
             <div className={styles.grid}>
-              {favourites.map((p) => (
+              {favorites.map((p) => (
                 <ProductCard
                   key={p.id}
                   product={p}
@@ -180,18 +188,41 @@ export default function Profile() {
                 />
               ))}
             </div>
-          )
-        )}
+          ))}
 
-        {activeTab === 'orders' && (
-          <div className={styles.empty}>
-            <ShoppingBag size={40} color="#d1d5db" />
-            <p className={styles.emptyTitle}>No orders yet</p>
-            <p className={styles.emptySubtext}>
-              Items you buy will appear here.
-            </p>
-          </div>
-        )}
+        {activeTab === 'orders' &&
+          (ordersLoading ? (
+            <div className={styles.empty}>
+              <p className={styles.emptyTitle}>Loading…</p>
+            </div>
+          ) : orders.length === 0 ? (
+            <div className={styles.empty}>
+              <ShoppingBag size={40} color="#d1d5db" />
+              <p className={styles.emptyTitle}>No orders yet</p>
+              <p className={styles.emptySubtext}>
+                Items you buy will appear here.
+              </p>
+            </div>
+          ) : (
+            <ul className={styles.ordersList}>
+              {orders.map((o) => (
+                <li key={o.id} className={styles.orderRow}>
+                  <button
+                    type="button"
+                    className={styles.orderBtn}
+                    onClick={() => navigate(`/product/${o.productId}`)}
+                  >
+                    <span className={styles.orderName}>{o.productName}</span>
+                    <span className={styles.orderDate}>
+                      {o.orderedAt
+                        ? new Date(o.orderedAt).toLocaleDateString()
+                        : ''}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ))}
 
         {activeTab === 'edit' && (
           <form onSubmit={handleSave} className={styles.editForm}>
@@ -208,13 +239,10 @@ export default function Profile() {
               placeholder="City, Country"
               maxLength={60}
             />
-            <InputField
-              label="Email"
-              value={user.email}
-              disabled
-              readOnly
-            />
+            <InputField label="Email" value={user.email} disabled readOnly />
             <p className={styles.hint}>Email cannot be changed here.</p>
+
+            {saveError && <p className={styles.errorMsg}>{saveError}</p>}
 
             <div className={styles.formActions}>
               <button

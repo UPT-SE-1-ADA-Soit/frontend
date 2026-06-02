@@ -7,6 +7,9 @@ import {
   Car,
   Home,
   Grid,
+  Trees,
+  Gamepad2,
+  Refrigerator,
 } from 'lucide-react';
 
 const ICONS = {
@@ -18,6 +21,9 @@ const ICONS = {
   car: Car,
   home: Home,
   grid: Grid,
+  trees: Trees,
+  'gamepad-2': Gamepad2,
+  refrigerator: Refrigerator,
 };
 
 export function CategoryIcon({ name, size = 24, color }) {

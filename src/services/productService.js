@@ -1,6 +1,6 @@
 import { request } from '@/api/client.js';
 
-function normalizeSummary(p) {
+export function normalizeSummary(p) {
   return {
     id: p.id,
     title: p.name,

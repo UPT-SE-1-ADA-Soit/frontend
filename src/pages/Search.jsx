@@ -6,12 +6,9 @@ import { CategoryIcon } from '@/components/CategoryIcon.jsx';
 import { ProductCard } from '@/components/ProductCard.jsx';
 import { SearchBar } from '@/components/SearchBar.jsx';
 
-import {
-  CATEGORY_BG,
-  CATEGORY_ICON_COLOR,
-  MOCK_CATEGORIES,
-} from '@/mocks/categories.js';
-import { MOCK_PRODUCTS } from '@/mocks/products.js';
+import { getCategoryStyle } from '@/constants/categoryStyle.js';
+import { useCategories } from '@/hooks/useCategories.js';
+import { useProducts } from '@/hooks/useProducts.js';
 
 import styles from './Search.module.css';
 
@@ -20,15 +17,18 @@ export default function Search() {
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
 
-  const products = useMemo(() => {
+  const { categories } = useCategories();
+  const { products, loading, error } = useProducts();
+
+  const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return MOCK_PRODUCTS.filter((p) => {
+    return products.filter((p) => {
       const matchesQuery = !q || p.title.toLowerCase().includes(q);
       const matchesCategory =
-        !selectedCategory || p.category.id === selectedCategory.id;
+        !selectedCategory || p.categoryId === selectedCategory.id;
       return matchesQuery && matchesCategory;
     });
-  }, [query, selectedCategory]);
+  }, [products, query, selectedCategory]);
 
   const isBrowse = !selectedCategory && !query.trim();
   const isCategoryView = !!selectedCategory;
@@ -66,15 +66,15 @@ export default function Search() {
       {isCategoryView && (
         <div className={styles.categoryHeader}>
           <CategoryIcon
-            name={selectedCategory.icon}
+            name={getCategoryStyle(selectedCategory.id).icon}
             size={18}
-            color={CATEGORY_ICON_COLOR[selectedCategory.id]}
+            color={getCategoryStyle(selectedCategory.id).iconColor}
           />
           <h2 className={styles.categoryHeaderTitle}>
             {selectedCategory.name}
           </h2>
           <span className={styles.categoryHeaderCount}>
-            {products.length} {products.length === 1 ? 'item' : 'items'}
+            {filtered.length} {filtered.length === 1 ? 'item' : 'items'}
           </span>
         </div>
       )}
@@ -83,23 +83,21 @@ export default function Search() {
         <>
           <h2 className={styles.sectionTitle}>Browse by category</h2>
           <div className={styles.categoryGrid}>
-            {MOCK_CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                className={styles.categoryCard}
-                style={{ background: CATEGORY_BG[cat.id] ?? '#F3F4F6' }}
-                onClick={() => setSelectedCategory(cat)}
-              >
-                <CategoryIcon
-                  name={cat.icon}
-                  size={32}
-                  color={CATEGORY_ICON_COLOR[cat.id]}
-                />
-
-                <span className={styles.categoryCardName}>{cat.name}</span>
-              </button>
-            ))}
+            {categories.map((cat) => {
+              const style = getCategoryStyle(cat.id);
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={styles.categoryCard}
+                  style={{ background: style.bg }}
+                  onClick={() => setSelectedCategory(cat)}
+                >
+                  <CategoryIcon name={style.icon} size={32} color={style.iconColor} />
+                  <span className={styles.categoryCardName}>{cat.name}</span>
+                </button>
+              );
+            })}
           </div>
         </>
       )}
@@ -108,11 +106,21 @@ export default function Search() {
         <>
           {!isCategoryView && (
             <h2 className={styles.sectionTitle}>
-              Items <span className={styles.count}>· {products.length}</span>
+              Items <span className={styles.count}>· {filtered.length}</span>
             </h2>
           )}
 
-          {products.length === 0 ? (
+          {loading ? (
+            <div className={styles.empty}>
+              <p className={styles.emptyTitle}>Loading…</p>
+            </div>
+          ) : error ? (
+            <div className={styles.empty}>
+              <SearchX size={40} color="#d1d5db" />
+              <p className={styles.emptyTitle}>Couldn’t load items</p>
+              <p className={styles.emptySubtext}>{error.message}</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className={styles.empty}>
               <SearchX size={40} color="#d1d5db" />
               <p className={styles.emptyTitle}>No items found</p>
@@ -122,7 +130,7 @@ export default function Search() {
             </div>
           ) : (
             <div className={styles.grid}>
-              {products.map((p) => (
+              {filtered.map((p) => (
                 <ProductCard
                   key={p.id}
                   product={p}

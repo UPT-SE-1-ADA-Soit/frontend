@@ -1,52 +1,73 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+
+import {
+  addFavorite,
+  fetchUserFavorites,
+  removeFavorite,
+} from '@/services/userService.js';
 import { useAuth } from './auth.jsx';
-import { MOCK_PRODUCTS } from '@/mocks/products.js';
 
 const LikesContext = createContext(null);
 
-function storageKey(userId) {
-  return `marketa.likes.${userId}`;
-}
-
 export function LikesProvider({ children }) {
   const { user } = useAuth();
+  const [favorites, setFavorites] = useState([]);
   const [likedIds, setLikedIds] = useState(new Set());
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!user) {
+      setFavorites([]);
       setLikedIds(new Set());
       return;
     }
-    try {
-      const raw = localStorage.getItem(storageKey(user.id));
-      if (raw) {
-        setLikedIds(new Set(JSON.parse(raw)));
-        return;
-      }
-    } catch {
-      // ignore
-    }
-    // Seed from mock "isLiked" flag the first time
-    const seeded = new Set(
-      MOCK_PRODUCTS.filter((p) => p.isLiked).map((p) => p.id),
-    );
-    setLikedIds(seeded);
+    let cancelled = false;
+    setLoading(true);
+    fetchUserFavorites(user.id)
+      .then((list) => {
+        if (cancelled) return;
+        setFavorites(list);
+        setLikedIds(new Set(list.map((p) => p.id)));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFavorites([]);
+        setLikedIds(new Set());
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id]);
 
-  function persist(next) {
+  async function toggleLike(productId) {
     if (!user) return;
-    localStorage.setItem(storageKey(user.id), JSON.stringify([...next]));
-  }
+    const wasLiked = likedIds.has(productId);
 
-  function toggleLike(productId) {
-    if (!user) return;
     setLikedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(productId)) next.delete(productId);
+      if (wasLiked) next.delete(productId);
       else next.add(productId);
-      persist(next);
       return next;
     });
+
+    try {
+      if (wasLiked) await removeFavorite(user.id, productId);
+      else await addFavorite(user.id, productId);
+      const fresh = await fetchUserFavorites(user.id);
+      setFavorites(fresh);
+      setLikedIds(new Set(fresh.map((p) => p.id)));
+    } catch {
+      setLikedIds((prev) => {
+        const next = new Set(prev);
+        if (wasLiked) next.add(productId);
+        else next.delete(productId);
+        return next;
+      });
+    }
   }
 
   function isLiked(productId) {
@@ -54,7 +75,9 @@ export function LikesProvider({ children }) {
   }
 
   return (
-    <LikesContext.Provider value={{ toggleLike, isLiked, likedIds }}>
+    <LikesContext.Provider
+      value={{ favorites, likedIds, isLiked, toggleLike, loading }}
+    >
       {children}
     </LikesContext.Provider>
   );
