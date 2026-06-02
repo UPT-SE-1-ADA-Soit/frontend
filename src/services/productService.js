@@ -45,3 +45,27 @@ export async function fetchProductDetail(id) {
   const data = await request('product', `/product/${id}`);
   return normalizeDetail(data);
 }
+
+export async function createProduct({
+  name,
+  categoryId,
+  price,
+  description,
+  region,
+  attributes = [],
+  imageUrls = [],
+}) {
+  const data = await request('product', '/product', {
+    method: 'POST',
+    body: {
+      name,
+      categoryId,
+      price,
+      description,
+      region,
+      attributes,
+      imageUrls,
+    },
+  });
+  return normalizeDetail(data);
+}

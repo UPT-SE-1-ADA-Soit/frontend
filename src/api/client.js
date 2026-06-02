@@ -36,7 +36,13 @@ export async function request(service, path, { method = 'GET', body, token, auth
     try { data = JSON.parse(text); } catch { data = text; }
   }
   if (!res.ok) {
-    const err = new Error(data?.message || `HTTP ${res.status}`);
+    const msg =
+      data?.message ||
+      data?.detail ||
+      data?.title ||
+      (typeof data === 'string' ? data : null) ||
+      `HTTP ${res.status}`;
+    const err = new Error(msg);
     err.status = res.status;
     err.body = data;
     throw err;

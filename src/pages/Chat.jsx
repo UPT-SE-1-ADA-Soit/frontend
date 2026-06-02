@@ -1,13 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Send } from 'lucide-react';
 
 import { LoginRequired } from '@/components/LoginRequired.jsx';
 import { useAuth } from '@/context/auth.jsx';
-
-import { MOCK_CONVERSATIONS } from '@/mocks/messages.js';
-import { MOCK_USERS } from '@/mocks/users.js';
-import { MOCK_PRODUCTS } from '@/mocks/products.js';
+import { useConversation } from '@/hooks/useConversation.js';
+import { fetchProductDetail } from '@/services/productService.js';
 
 import styles from './Chat.module.css';
 
@@ -18,45 +16,40 @@ function formatTime(iso) {
   });
 }
 
-function findConversation(meId, otherId) {
-  return (
-    MOCK_CONVERSATIONS.find(
-      (c) =>
-        (c.buyer.id === meId && c.seller.id === otherId) ||
-        (c.seller.id === meId && c.buyer.id === otherId),
-    ) ?? null
-  );
-}
-
 export default function Chat() {
-  const { id: otherUserId } = useParams();
+  const { id: otherUserParam } = useParams();
   const [params] = useSearchParams();
   const productId = params.get('productId');
   const navigate = useNavigate();
   const { user } = useAuth();
   const listRef = useRef(null);
 
-  const otherUser = useMemo(
-    () => MOCK_USERS.find((u) => u.id === otherUserId),
-    [otherUserId],
+  const otherUserId = otherUserParam ? Number(otherUserParam) : null;
+  const { messages, otherUser, loading, error, sending, send } = useConversation(
+    user?.id,
+    otherUserId,
   );
 
-  const seedConversation = useMemo(
-    () => (user ? findConversation(user.id, otherUserId) : null),
-    [user, otherUserId],
-  );
-
-  const product = useMemo(() => {
-    if (productId) return MOCK_PRODUCTS.find((p) => p.id === productId);
-    return seedConversation?.product;
-  }, [productId, seedConversation]);
-
-  const [messages, setMessages] = useState(() => seedConversation?.messages ?? []);
-  const [input, setInput] = useState('');
-
+  const [product, setProduct] = useState(null);
   useEffect(() => {
-    setMessages(seedConversation?.messages ?? []);
-  }, [seedConversation]);
+    if (!productId) {
+      setProduct(null);
+      return;
+    }
+    let cancelled = false;
+    fetchProductDetail(productId)
+      .then((p) => {
+        if (!cancelled) setProduct(p);
+      })
+      .catch(() => {
+        if (!cancelled) setProduct(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [productId]);
+
+  const [input, setInput] = useState('');
 
   useEffect(() => {
     const el = listRef.current;
@@ -65,7 +58,7 @@ export default function Chat() {
 
   if (!user) return <LoginRequired message="Log in to view your conversations." />;
 
-  if (!otherUser) {
+  if (!otherUserId) {
     return (
       <div className={styles.notFound}>
         <p>Conversation not found.</p>
@@ -80,19 +73,16 @@ export default function Chat() {
     );
   }
 
-  function handleSend(e) {
+  async function handleSend(e) {
     e.preventDefault();
     const text = input.trim();
-    if (!text) return;
-    const msg = {
-      id: `local-${Date.now()}`,
-      senderId: user.id,
-      text,
-      createdAt: new Date().toISOString(),
-      read: false,
-    };
-    setMessages((prev) => [...prev, msg]);
+    if (!text || sending) return;
     setInput('');
+    try {
+      await send(text);
+    } catch {
+      setInput(text);
+    }
   }
 
   return (
@@ -107,7 +97,7 @@ export default function Chat() {
           <ArrowLeft size={22} />
         </button>
 
-        {otherUser.avatar ? (
+        {otherUser?.avatar ? (
           <img
             src={otherUser.avatar}
             alt={otherUser.name}
@@ -115,12 +105,14 @@ export default function Chat() {
           />
         ) : (
           <div className={`${styles.avatar} ${styles.avatarFallback}`}>
-            {otherUser.name.charAt(0).toUpperCase()}
+            {(otherUser?.name ?? '?').charAt(0).toUpperCase()}
           </div>
         )}
 
         <div className={styles.headerInfo}>
-          <p className={styles.headerName}>{otherUser.name}</p>
+          <p className={styles.headerName}>
+            {otherUser?.name ?? `User #${otherUserId}`}
+          </p>
           {product && (
             <p className={styles.headerProduct}>
               {product.title} · ${product.price}
@@ -138,9 +130,17 @@ export default function Chat() {
       </header>
 
       <div className={styles.messageList} ref={listRef}>
-        {messages.length === 0 ? (
+        {loading ? (
           <div className={styles.emptyChat}>
-            <p>Say hello to {otherUser.name}!</p>
+            <p>Loading…</p>
+          </div>
+        ) : error ? (
+          <div className={styles.emptyChat}>
+            <p>Couldn’t load messages: {error.message}</p>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className={styles.emptyChat}>
+            <p>Say hello to {otherUser?.name ?? 'them'}!</p>
           </div>
         ) : (
           messages.map((m) => {
@@ -155,11 +155,11 @@ export default function Chat() {
                     isSent ? styles.bubbleSent : styles.bubbleReceived
                   }`}
                 >
-                  <p className={styles.bubbleText}>{m.text}</p>
+                  <p className={styles.bubbleText}>{m.content}</p>
                   <span
                     className={`${styles.bubbleTime} ${isSent ? styles.bubbleTimeSent : ''}`}
                   >
-                    {formatTime(m.createdAt)}
+                    {formatTime(m.sentAt)}
                   </span>
                 </div>
               </div>
@@ -176,11 +176,12 @@ export default function Chat() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type a message..."
           maxLength={500}
+          disabled={sending}
         />
         <button
           type="submit"
           className={styles.sendBtn}
-          disabled={!input.trim()}
+          disabled={!input.trim() || sending}
           aria-label="Send message"
         >
           <Send size={18} />

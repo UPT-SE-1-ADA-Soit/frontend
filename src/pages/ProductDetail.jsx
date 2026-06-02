@@ -14,6 +14,7 @@ import { ConditionBadge } from '@/components/ConditionBadge.jsx';
 import { useAuth } from '@/context/auth.jsx';
 import { useLikes } from '@/context/likes.jsx';
 import { useProductDetail } from '@/hooks/useProductDetail.js';
+import { placeOrder } from '@/services/userService.js';
 
 import styles from './ProductDetail.module.css';
 
@@ -26,6 +27,8 @@ export default function ProductDetail() {
   const { product, loading, error } = useProductDetail(id);
   const [activeImage, setActiveImage] = useState(0);
   const [buying, setBuying] = useState(false);
+  const [purchased, setPurchased] = useState(false);
+  const [buyError, setBuyError] = useState('');
 
   if (loading) {
     return (
@@ -58,10 +61,16 @@ export default function ProductDetail() {
       navigate('/login');
       return;
     }
+    setBuyError('');
     setBuying(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setBuying(false);
-    alert(`Order placed! You bought "${product.title}".`);
+    try {
+      await placeOrder(product.id);
+      setPurchased(true);
+    } catch (err) {
+      setBuyError(err.message || 'Could not place order.');
+    } finally {
+      setBuying(false);
+    }
   }
 
   function handleMessage() {
@@ -81,6 +90,12 @@ export default function ProductDetail() {
   }
 
   const isOwnListing = user?.id === product.seller.id;
+  const soldOut = product.inStock === false || purchased;
+
+  let buyLabel = `Buy · $${product.price}`;
+  if (buying) buyLabel = 'Placing order…';
+  else if (purchased) buyLabel = 'Bought ✓';
+  else if (product.inStock === false) buyLabel = 'Sold';
 
   return (
     <div className={styles.page}>
@@ -201,6 +216,13 @@ export default function ProductDetail() {
         </div>
       </div>
 
+      {purchased && (
+        <div className={styles.successBanner}>
+          Order placed — check the Orders tab in your Profile.
+        </div>
+      )}
+      {buyError && <div className={styles.errorBanner}>{buyError}</div>}
+
       <div className={styles.bottomBar}>
         <button
           type="button"
@@ -216,9 +238,9 @@ export default function ProductDetail() {
           type="button"
           className={styles.buyBtn}
           onClick={handleBuy}
-          disabled={buying || isOwnListing}
+          disabled={buying || isOwnListing || soldOut}
         >
-          {buying ? 'Placing order…' : `Buy · $${product.price}`}
+          {buyLabel}
         </button>
       </div>
     </div>

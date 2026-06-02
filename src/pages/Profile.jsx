@@ -7,6 +7,7 @@ import {
   Pencil,
   LogOut,
   MapPin,
+  Clock,
 } from 'lucide-react';
 
 import { InputField } from '@/components/InputField.jsx';
@@ -15,6 +16,7 @@ import { ProductCard } from '@/components/ProductCard.jsx';
 
 import { useAuth } from '@/context/auth.jsx';
 import { useLikes } from '@/context/likes.jsx';
+import { useUserHistory } from '@/hooks/useUserHistory.js';
 import { useUserListings } from '@/hooks/useUserListings.js';
 import { useUserOrders } from '@/hooks/useUserOrders.js';
 
@@ -23,6 +25,7 @@ import styles from './Profile.module.css';
 const TABS = [
   { key: 'listings', label: 'Listings', icon: Grid },
   { key: 'favourites', label: 'Favourites', icon: Heart },
+  { key: 'history', label: 'Recently Viewed', icon: Clock },
   { key: 'orders', label: 'Orders', icon: ShoppingBag },
   { key: 'edit', label: 'Edit Profile', icon: Pencil },
 ];
@@ -40,6 +43,7 @@ export default function Profile() {
   const [saveError, setSaveError] = useState('');
 
   const { listings, loading: listingsLoading } = useUserListings(user?.id);
+  const { history, loading: historyLoading } = useUserHistory(user?.id);
   const { orders, loading: ordersLoading } = useUserOrders(user?.id);
 
   if (!user) return <LoginRequired message="Log in to view your profile." />;
@@ -181,6 +185,31 @@ export default function Profile() {
           ) : (
             <div className={styles.grid}>
               {favorites.map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  onClick={() => navigate(`/product/${p.id}`)}
+                />
+              ))}
+            </div>
+          ))}
+
+        {activeTab === 'history' &&
+          (historyLoading ? (
+            <div className={styles.empty}>
+              <p className={styles.emptyTitle}>Loading…</p>
+            </div>
+          ) : history.length === 0 ? (
+            <div className={styles.empty}>
+              <Clock size={40} color="#d1d5db" />
+              <p className={styles.emptyTitle}>No browsing history yet</p>
+              <p className={styles.emptySubtext}>
+                Products you open while logged in will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className={styles.grid}>
+              {history.map((p) => (
                 <ProductCard
                   key={p.id}
                   product={p}

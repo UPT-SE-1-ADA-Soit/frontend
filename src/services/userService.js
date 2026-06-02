@@ -52,3 +52,15 @@ export function addFavorite(userId, productId) {
 export function removeFavorite(userId, productId) {
   return request('product', `/user/${userId}/favorites/${productId}`, { method: 'DELETE' });
 }
+
+export async function placeOrder(productId) {
+  const data = await request('product', '/order', {
+    method: 'POST',
+    body: { productId },
+  });
+  return normalizeOrder(data);
+}
+
+export function cancelOrder(orderId) {
+  return request('product', `/order/${orderId}`, { method: 'DELETE' });
+}

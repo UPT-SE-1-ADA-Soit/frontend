@@ -1,21 +1,23 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, X } from 'lucide-react';
+import { ImagePlus } from 'lucide-react';
 
 import { CategoryIcon } from '@/components/CategoryIcon.jsx';
 import { InputField } from '@/components/InputField.jsx';
 import { LoginRequired } from '@/components/LoginRequired.jsx';
 import { useAuth } from '@/context/auth.jsx';
-import { MOCK_CATEGORIES } from '@/mocks/categories.js';
+import { useCategories } from '@/hooks/useCategories.js';
+import { getCategoryStyle } from '@/constants/categoryStyle.js';
+import { createProduct } from '@/services/productService.js';
 
 import styles from './Sell.module.css';
 
 export default function Sell() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const fileInputRef = useRef(null);
 
-  const [photos, setPhotos] = useState([]);
+  const { categories } = useCategories();
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -25,23 +27,6 @@ export default function Sell() {
   const [submitError, setSubmitError] = useState('');
 
   if (!user) return <LoginRequired message="Log in to list an item for sale." />;
-
-  function handleAddPhoto() {
-    fileInputRef.current?.click();
-  }
-
-  function handlePhotoChange(e) {
-    const files = Array.from(e.target.files ?? []);
-    if (files.length === 0) return;
-    const remaining = Math.max(0, 5 - photos.length);
-    const next = files.slice(0, remaining).map((f) => URL.createObjectURL(f));
-    setPhotos((prev) => [...prev, ...next]);
-    e.target.value = '';
-  }
-
-  function handleRemovePhoto(i) {
-    setPhotos((prev) => prev.filter((_, idx) => idx !== i));
-  }
 
   function validate() {
     if (!title.trim()) return 'Title is required.';
@@ -61,11 +46,20 @@ export default function Sell() {
     }
     setSubmitError('');
     setSubmitting(true);
-    // TODO: replace with POST /api/products
-    await new Promise((r) => setTimeout(r, 600));
-    setSubmitting(false);
-    alert(`Listed! "${title}" is now visible to nearby buyers.`);
-    navigate('/');
+    try {
+      const product = await createProduct({
+        name: title.trim(),
+        categoryId,
+        price: Number(price),
+        description: description.trim(),
+        region: location.trim(),
+      });
+      navigate(`/product/${product.id}`);
+    } catch (err) {
+      setSubmitError(err.message || 'Could not list this item.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -80,49 +74,16 @@ export default function Sell() {
 
       <form onSubmit={handleSubmit} className={styles.form}>
         <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionLabel}>Photos</h2>
-            <span className={styles.photoCount}>{photos.length} / 5</span>
+          <h2 className={styles.sectionLabel}>Photos</h2>
+          <div className={styles.photoPlaceholder}>
+            <ImagePlus size={28} color="#9ca3af" />
+            <p className={styles.photoPlaceholderText}>
+              Photo upload coming soon
+            </p>
+            <p className={styles.photoPlaceholderSub}>
+              Your listing will go up without an image — you can add one later.
+            </p>
           </div>
-          <p className={styles.sectionHint}>
-            Up to 5 photos · first photo is the cover
-          </p>
-          <div className={styles.photosRow}>
-            {photos.map((src, i) => (
-              <div key={i} className={styles.photoThumb}>
-                <img src={src} alt="" className={styles.photoImg} />
-                {i === 0 && (
-                  <span className={styles.coverBadge}>Cover</span>
-                )}
-                <button
-                  type="button"
-                  className={styles.removePhoto}
-                  onClick={() => handleRemovePhoto(i)}
-                  aria-label="Remove photo"
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
-            {photos.length < 5 && (
-              <button
-                type="button"
-                className={styles.addPhoto}
-                onClick={handleAddPhoto}
-              >
-                <Camera size={22} color="#6b7280" />
-                <span>Add</span>
-              </button>
-            )}
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            onChange={handlePhotoChange}
-          />
         </section>
 
         <section className={styles.section}>
@@ -162,8 +123,9 @@ export default function Sell() {
         <section className={styles.section}>
           <h2 className={styles.sectionLabel}>Category</h2>
           <div className={styles.categoriesRow}>
-            {MOCK_CATEGORIES.map((cat) => {
+            {categories.map((cat) => {
               const active = categoryId === cat.id;
+              const style = getCategoryStyle(cat.id);
               return (
                 <button
                   key={cat.id}
@@ -172,9 +134,9 @@ export default function Sell() {
                   onClick={() => setCategoryId(cat.id)}
                 >
                   <CategoryIcon
-                    name={cat.icon}
+                    name={style.icon}
                     size={16}
-                    color={active ? '#fff' : '#6B7280'}
+                    color={active ? '#fff' : style.iconColor}
                   />
                   {cat.name}
                 </button>
