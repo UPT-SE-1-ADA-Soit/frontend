@@ -4,21 +4,16 @@ import { MessageSquare } from 'lucide-react';
 import { ConversationCard } from '@/components/ConversationCard.jsx';
 import { LoginRequired } from '@/components/LoginRequired.jsx';
 import { useAuth } from '@/context/auth.jsx';
-import { useConversations } from '@/hooks/useConversations.js';
+import { useMessaging } from '@/context/messaging.jsx';
 
 import styles from './Messages.module.css';
 
 export default function Messages() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { conversations, loading, error } = useConversations(user?.id);
+  const { conversations, loading, error, totalUnread } = useMessaging();
 
   if (!user) return <LoginRequired message="Log in to view your conversations." />;
-
-  const totalUnread = conversations.reduce(
-    (sum, c) => sum + (c.unreadCount ?? 0),
-    0,
-  );
 
   return (
     <div className={styles.page}>

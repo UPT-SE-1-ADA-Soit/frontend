@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   fetchConversation,
@@ -13,10 +13,12 @@ export function useConversation(currentUserId, otherUserId) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [sending, setSending] = useState(false);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
     if (!currentUserId || !otherUserId) return;
     let cancelled = false;
+    loadedRef.current = false;
     setLoading(true);
     setError(null);
 
@@ -57,12 +59,48 @@ export function useConversation(currentUserId, otherUserId) {
         if (!cancelled) setError(err);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          loadedRef.current = true;
+        }
       });
 
     return () => {
       cancelled = true;
     };
+  }, [currentUserId, otherUserId]);
+
+  useEffect(() => {
+    if (!currentUserId || !otherUserId) return;
+
+    const id = setInterval(async () => {
+      if (!loadedRef.current) return;
+      try {
+        const conv = await fetchConversation(otherUserId, { page: 0, size: 20 });
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const fresh = conv.messages.filter((m) => !existingIds.has(m.id));
+          if (fresh.length === 0) return prev;
+
+          const incomingNew = fresh.filter(
+            (m) => m.receiverId === currentUserId && m.readAt === null,
+          );
+          const now = new Date().toISOString();
+          incomingNew.forEach((m) => markRead(m.id).catch(() => {}));
+
+          return [
+            ...prev,
+            ...fresh.map((m) =>
+              incomingNew.some((u) => u.id === m.id) ? { ...m, readAt: now } : m,
+            ),
+          ].sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt));
+        });
+      } catch {
+        // ignore poll errors
+      }
+    }, 3000);
+
+    return () => clearInterval(id);
   }, [currentUserId, otherUserId]);
 
   const send = useCallback(

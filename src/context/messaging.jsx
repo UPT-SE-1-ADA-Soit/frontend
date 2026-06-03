@@ -1,16 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 import { fetchConversations } from '@/services/messageService.js';
 import { fetchUserProfile } from '@/services/userService.js';
+import { useAuth } from '@/context/auth.jsx';
 
-export function useConversations(currentUserId) {
+const MessagingContext = createContext(null);
+
+export function MessagingProvider({ children }) {
+  const { user } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const profileCache = useRef({});
 
   useEffect(() => {
-    if (!currentUserId) {
+    if (!user?.id) {
       setConversations([]);
       profileCache.current = {};
       return;
@@ -51,7 +55,17 @@ export function useConversations(currentUserId) {
     refresh(true);
     const id = setInterval(() => refresh(false), 5000);
     return () => clearInterval(id);
-  }, [currentUserId]);
+  }, [user?.id]);
 
-  return { conversations, loading, error };
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0);
+
+  return (
+    <MessagingContext.Provider value={{ conversations, loading, error, totalUnread }}>
+      {children}
+    </MessagingContext.Provider>
+  );
+}
+
+export function useMessaging() {
+  return useContext(MessagingContext);
 }

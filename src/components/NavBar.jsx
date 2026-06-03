@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '@/context/auth.jsx';
+import { useMessaging } from '@/context/messaging.jsx';
 import styles from './NavBar.module.css';
 
 const TABS = [
@@ -20,6 +21,7 @@ const TABS = [
 
 export function NavBar() {
   const { user } = useAuth();
+  const { totalUnread } = useMessaging();
   const navigate = useNavigate();
 
   return (
@@ -48,7 +50,14 @@ export function NavBar() {
                     .join(' ')
                 }
               >
-                <Icon size={18} strokeWidth={2} />
+                <span className={styles.iconWrap}>
+                  <Icon size={18} strokeWidth={2} />
+                  {tab.to === '/messages' && totalUnread > 0 && (
+                    <span className={styles.badge}>
+                      {totalUnread > 99 ? '99+' : totalUnread}
+                    </span>
+                  )}
+                </span>
                 <span className={styles.tabLabel}>{tab.label}</span>
               </NavLink>
             );
